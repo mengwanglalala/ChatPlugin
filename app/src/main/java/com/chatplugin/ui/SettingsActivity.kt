@@ -14,17 +14,24 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.chatplugin.model.AIConfig
 import com.chatplugin.model.AIProvider
 import com.chatplugin.storage.SecurePreferences
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 class SettingsActivity : ComponentActivity() {
+    private lateinit var prefs: SecurePreferences
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        prefs = SecurePreferences(this)
         setContent {
             MaterialTheme {
-                SettingsScreen(SecurePreferences(this))
+                SettingsScreen(prefs)
             }
         }
     }
@@ -35,9 +42,24 @@ fun SettingsScreen(prefs: SecurePreferences) {
     val context = LocalContext.current
     var config by remember { mutableStateOf(prefs.loadConfig()) }
 
-    fun save(newConfig: AIConfig) {
-        config = newConfig
-        prefs.saveConfig(newConfig)
+    // Debounced save: waits 300ms after last change before writing to disk
+    LaunchedEffect(config) {
+        delay(300)
+        withContext(Dispatchers.IO) {
+            prefs.saveConfig(config)
+        }
+    }
+
+    // Permission status — re-read on each recomposition trigger (acceptable: cheap reads)
+    val accessibilityGranted by remember {
+        derivedStateOf {
+            Settings.Secure.getString(
+                context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            )?.contains("com.chatplugin") == true
+        }
+    }
+    val overlayGranted by remember {
+        derivedStateOf { Settings.canDrawOverlays(context) }
     }
 
     Column(
@@ -64,14 +86,14 @@ fun SettingsScreen(prefs: SecurePreferences) {
                     DropdownMenuItem(
                         text = { Text("OpenAI 兼容（DeepSeek 等）") },
                         onClick = {
-                            save(config.copy(provider = AIProvider.OPENAI_COMPATIBLE))
+                            config = config.copy(provider = AIProvider.OPENAI_COMPATIBLE)
                             expanded = false
                         }
                     )
                     DropdownMenuItem(
                         text = { Text("Claude") },
                         onClick = {
-                            save(config.copy(provider = AIProvider.CLAUDE))
+                            config = config.copy(provider = AIProvider.CLAUDE)
                             expanded = false
                         }
                     )
@@ -82,7 +104,7 @@ fun SettingsScreen(prefs: SecurePreferences) {
 
             OutlinedTextField(
                 value = config.model,
-                onValueChange = { save(config.copy(model = it)) },
+                onValueChange = { config = config.copy(model = it) },
                 label = { Text("模型名称") },
                 placeholder = { Text("deepseek-chat") },
                 modifier = Modifier.fillMaxWidth()
@@ -92,7 +114,7 @@ fun SettingsScreen(prefs: SecurePreferences) {
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = config.baseUrl,
-                    onValueChange = { save(config.copy(baseUrl = it)) },
+                    onValueChange = { config = config.copy(baseUrl = it) },
                     label = { Text("API Base URL") },
                     placeholder = { Text("https://api.deepseek.com/v1/") },
                     modifier = Modifier.fillMaxWidth()
@@ -103,9 +125,10 @@ fun SettingsScreen(prefs: SecurePreferences) {
 
             OutlinedTextField(
                 value = config.apiKey,
-                onValueChange = { save(config.copy(apiKey = it)) },
+                onValueChange = { config = config.copy(apiKey = it) },
                 label = { Text("API Key") },
                 placeholder = { Text("sk-...") },
+                visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -114,7 +137,7 @@ fun SettingsScreen(prefs: SecurePreferences) {
             Text("读取消息条数 N：${config.contextMessages}")
             Slider(
                 value = config.contextMessages.toFloat(),
-                onValueChange = { save(config.copy(contextMessages = it.toInt())) },
+                onValueChange = { config = config.copy(contextMessages = it.toInt()) },
                 valueRange = 3f..30f,
                 steps = 26
             )
@@ -122,7 +145,7 @@ fun SettingsScreen(prefs: SecurePreferences) {
             Text("建议条数：${config.maxSuggestions}")
             Slider(
                 value = config.maxSuggestions.toFloat(),
-                onValueChange = { save(config.copy(maxSuggestions = it.toInt())) },
+                onValueChange = { config = config.copy(maxSuggestions = it.toInt()) },
                 valueRange = 1f..5f,
                 steps = 3
             )
@@ -131,9 +154,7 @@ fun SettingsScreen(prefs: SecurePreferences) {
         SectionCard(title = "权限") {
             PermissionRow(
                 name = "无障碍服务",
-                granted = Settings.Secure.getString(
-                    context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-                )?.contains("com.chatplugin") == true,
+                granted = accessibilityGranted,
                 onGrant = {
                     context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 }
@@ -141,7 +162,7 @@ fun SettingsScreen(prefs: SecurePreferences) {
             Spacer(Modifier.height(8.dp))
             PermissionRow(
                 name = "显示在其他应用上层",
-                granted = Settings.canDrawOverlays(context),
+                granted = overlayGranted,
                 onGrant = {
                     context.startActivity(
                         Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,

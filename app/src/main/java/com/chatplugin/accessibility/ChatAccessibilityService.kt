@@ -4,8 +4,6 @@ import android.accessibilityservice.AccessibilityService
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.util.DisplayMetrics
-import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Toast
@@ -20,7 +18,6 @@ class ChatAccessibilityService : AccessibilityService() {
     private lateinit var overlayManager: OverlayManager
     private lateinit var prefs: SecurePreferences
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    private val wm by lazy { getSystemService(WINDOW_SERVICE) as WindowManager }
 
     private val chatAppKeywords = listOf(
         "wechat", "weixin", "whatsapp", "telegram", "line",
@@ -29,6 +26,7 @@ class ChatAccessibilityService : AccessibilityService() {
     )
 
     private var lastMessages = emptyList<Message>()
+    private var contentChangedJob: Job? = null
 
     override fun onServiceConnected() {
         overlayManager = OverlayManager(this)
@@ -51,7 +49,8 @@ class ChatAccessibilityService : AccessibilityService() {
                 }
             }
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
-                serviceScope.launch {
+                contentChangedJob?.cancel()
+                contentChangedJob = serviceScope.launch {
                     delay(300)
                     val newMessages = extractMessages()
                     if (newMessages != lastMessages) {
@@ -71,13 +70,11 @@ class ChatAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun extractMessages(): List<Message> {
-        val root = rootInActiveWindow ?: return emptyList()
-        val metrics = DisplayMetrics()
-        @Suppress("DEPRECATION")
-        wm.defaultDisplay.getMetrics(metrics)
+    private suspend fun extractMessages(): List<Message> = withContext(Dispatchers.IO) {
+        val root = rootInActiveWindow ?: return@withContext emptyList()
+        val metrics = context.resources.displayMetrics
         val config = prefs.loadConfig()
-        return MessageExtractor.extractFromNode(root, metrics.widthPixels, config.contextMessages)
+        MessageExtractor.extractFromNode(root, metrics.widthPixels, config.contextMessages)
     }
 
     private fun generateSuggestions(messages: List<Message>) {
@@ -123,6 +120,7 @@ class ChatAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() {
+        contentChangedJob?.cancel()
         overlayManager.dismiss()
     }
 

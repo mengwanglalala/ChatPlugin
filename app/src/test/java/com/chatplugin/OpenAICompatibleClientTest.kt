@@ -5,6 +5,7 @@ import com.chatplugin.model.AIConfig
 import com.chatplugin.model.AIProvider
 import com.chatplugin.model.Message
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -67,10 +68,9 @@ class OpenAICompatibleClientTest {
         )
         val client = OpenAICompatibleClient(config)
 
-        val ex = runCatching {
+        val ex = assertFailsWith<Exception> {
             client.getSuggestions(listOf(Message("hi", false)), count = 3)
-        }.exceptionOrNull()
-        assertFailsWith<Exception> { throw ex ?: error("Expected exception but none was thrown") }
-        assert(ex!!.message?.contains("401") == true)
+        }
+        assertTrue(ex.message?.contains("401") == true)
     }
 }

@@ -21,6 +21,7 @@ class PermissionGuideActivity : ComponentActivity() {
                 PermissionGuideScreen(
                     onOpenSettings = {
                         startActivity(Intent(this, SettingsActivity::class.java))
+                        finish()
                     }
                 )
             }
@@ -67,7 +68,7 @@ fun PermissionGuideScreen(onOpenSettings: () -> Unit) {
                 Button(onClick = {
                     context.startActivity(
                         Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                            Uri.parse("package:com.chatplugin"))
+                            Uri.parse("package:${context.packageName}"))
                     )
                 }) { Text("去开启悬浮窗权限") }
             }

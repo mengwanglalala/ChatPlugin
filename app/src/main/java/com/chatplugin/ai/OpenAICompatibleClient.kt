@@ -53,16 +53,19 @@ class OpenAICompatibleClient(
 
             val response = httpClient.newCall(request).execute()
             if (!response.isSuccessful) {
-                throw Exception("API error ${response.code}: ${response.body?.string()}")
+                val errorBody = response.body?.string() ?: ""
+                throw Exception("API error ${response.code}: $errorBody")
             }
 
-            val responseBody = response.body?.string() ?: throw Exception("Empty response")
+            val responseBody = response.body?.use { it.string() } ?: throw Exception("Empty response")
             val jsonResponse = json.parseToJsonElement(responseBody).jsonObject
-            val content = jsonResponse["choices"]!!
-                .jsonArray[0]
-                .jsonObject["message"]!!
-                .jsonObject["content"]!!
-                .jsonPrimitive.content
+            val choices = jsonResponse["choices"]?.jsonArray
+                ?: throw Exception("Invalid response: missing 'choices'")
+            if (choices.isEmpty()) throw Exception("Invalid response: empty 'choices'")
+            val content = choices[0].jsonObject["message"]
+                ?.jsonObject?.get("content")
+                ?.jsonPrimitive?.content
+                ?: throw Exception("Invalid response: missing 'content'")
 
             content.lines()
                 .map { it.trim() }

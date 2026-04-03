@@ -72,7 +72,7 @@ class ChatAccessibilityService : AccessibilityService() {
 
     private suspend fun extractMessages(): List<Message> = withContext(Dispatchers.IO) {
         val root = rootInActiveWindow ?: return@withContext emptyList()
-        val metrics = context.resources.displayMetrics
+        val metrics = resources.displayMetrics
         val config = prefs.loadConfig()
         MessageExtractor.extractFromNode(root, metrics.widthPixels, config.contextMessages)
     }

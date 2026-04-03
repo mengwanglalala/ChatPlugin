@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">聊天插件</string>
+    <string name="accessibility_service_description">
+        读取当前聊天 App 的消息内容，生成 AI 回复建议显示在键盘上方。不存储任何聊天内容。
+    </string>
+</resources>

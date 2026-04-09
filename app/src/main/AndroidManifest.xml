@@ -23,7 +23,7 @@
         <!-- 设置页 -->
         <activity
             android:name=".ui.SettingsActivity"
-            android:exported="false" />
+            android:exported="true" />
 
         <!-- 无障碍服务 -->
         <service

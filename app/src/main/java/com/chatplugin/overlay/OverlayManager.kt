@@ -20,14 +20,21 @@ class OverlayManager(private val context: Context) {
         WindowManager.LayoutParams.WRAP_CONTENT,
         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+        // FLAG_LAYOUT_IN_SCREEN: 确保坐标基于屏幕而非窗口，避免 y 偏移错误
         PixelFormat.TRANSLUCENT
     ).apply {
         gravity = Gravity.BOTTOM
         y = keyboardHeight
+        // 阻止 overlay 出现时收起键盘
+        softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_UNCHANGED or
+                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
     }
 
     fun show(suggestions: List<String>, onSelected: (String) -> Unit) {
+        // 键盘未弹起时不显示
+        if (keyboardHeight <= 0) return
         onSuggestionSelected = onSelected
         dismiss()
         val view = buildSuggestionBar(suggestions)
@@ -40,6 +47,8 @@ class OverlayManager(private val context: Context) {
     }
 
     fun showLoading() {
+        // 键盘未弹起时不显示（避免黑色横杠出现在屏幕顶部）
+        if (keyboardHeight <= 0) return
         dismiss()
         val view = buildLoadingBar()
         try {
@@ -49,6 +58,8 @@ class OverlayManager(private val context: Context) {
     }
 
     fun showError(onRetry: () -> Unit) {
+        // 键盘未弹起时不显示，避免黑色横杠
+        if (keyboardHeight <= 0) return
         dismiss()
         val view = buildErrorBar(onRetry)
         try {
@@ -66,6 +77,11 @@ class OverlayManager(private val context: Context) {
 
     fun updateKeyboardHeight(height: Int) {
         keyboardHeight = height
+        if (height <= 0) {
+            // 键盘收起，立即隐藏所有 overlay
+            dismiss()
+            return
+        }
         overlayView?.let { view ->
             val params = view.layoutParams as WindowManager.LayoutParams
             params.y = height

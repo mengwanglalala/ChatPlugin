@@ -3,3 +3,6 @@ build/
 *.iml
 .idea/
 local.properties
+gradle/wrapper/gradle-8.4-bin.zip
+gradle/wrapper/gradle-wrapper-new.jar
+gradlew.bat

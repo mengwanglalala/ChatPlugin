@@ -52,7 +52,6 @@ fun SettingsScreen(prefs: SecurePreferences) {
         }
     }
 
-    // Permission status — re-read on each recomposition trigger (acceptable: cheap reads)
     val accessibilityGranted by remember {
         derivedStateOf {
             Settings.Secure.getString(
@@ -71,7 +70,7 @@ fun SettingsScreen(prefs: SecurePreferences) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("聊天插件设置", style = MaterialTheme.typography.headlineMedium)
+        Text("ChatPlugin 设置", style = MaterialTheme.typography.headlineMedium)
 
         SectionCard(title = "模型配置") {
             var expanded by remember { mutableStateOf(false) }
@@ -135,8 +134,29 @@ fun SettingsScreen(prefs: SecurePreferences) {
             )
         }
 
-        SectionCard(title = "上下文") {
-            Text("读取消息条数 N：${config.contextMessages}")
+        SectionCard(title = "AI Prompt") {
+            OutlinedTextField(
+                value = config.systemPrompt,
+                onValueChange = { config = config.copy(systemPrompt = it) },
+                label = { Text("系统 Prompt") },
+                placeholder = { Text("输入自定义 Prompt...") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 200.dp),
+                maxLines = 20,
+                minLines = 8
+            )
+            Spacer(Modifier.height(8.dp))
+            TextButton(
+                onClick = { config = config.copy(systemPrompt = AIConfig.DEFAULT_SYSTEM_PROMPT) },
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text("恢复默认")
+            }
+        }
+
+        SectionCard(title = "参数") {
+            Text("读取消息最近 N 条：${config.contextMessages}")
             Slider(
                 value = config.contextMessages.toFloat(),
                 onValueChange = { config = config.copy(contextMessages = it.toInt()) },
@@ -144,7 +164,7 @@ fun SettingsScreen(prefs: SecurePreferences) {
                 steps = 26
             )
             Spacer(Modifier.height(8.dp))
-            Text("建议条数：${config.maxSuggestions}")
+            Text("建议回复条数：${config.maxSuggestions}")
             Slider(
                 value = config.maxSuggestions.toFloat(),
                 onValueChange = { config = config.copy(maxSuggestions = it.toInt()) },
